@@ -143,8 +143,8 @@ WHERE TOTAL_AMT>0
 GROUP BY CUSTOMER_ID
 HAVING COUNT(*) >10;
 
---Q8. What is the combined revenue earned from the “Electronics” & “Clothing”
---categories, from “Flagship stores”?
+--Q8. What is the combined revenue earned from the â€œElectronicsâ€ & â€œClothingâ€
+--categories, from â€œFlagship storesâ€?
 
 SELECT SUM(T.TOTAL_AMT) AS TOTAL_REV
 FROM CATEGORY AS C
@@ -153,7 +153,7 @@ WHERE C.PROD_CAT IN ('ELECTRONICS', 'BOOKS') AND T.STORE_TYPE = 'FLAGSHIP STORE'
 
 
 
---Q9. What is the total revenue generated from “Male” customers in “Electronics”
+--Q9. What is the total revenue generated from â€œMaleâ€ customers in â€œElectronicsâ€
 --category? Output should display total revenue by prod sub-cat.
 
 SELECT CY.prod_subcat, 
