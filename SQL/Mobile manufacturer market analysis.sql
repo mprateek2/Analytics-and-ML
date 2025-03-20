@@ -629,7 +629,7 @@ FROM (SELECT *,
 		FROM (SELECT IDMODEL, 
 			  SUM(QUANTITY) AS SUM_QUANTITY
 			  FROM FACT_TRANSACTIONS
-			  WHERE DATEPART(YEAR,[DATE])=2008
+			  WHERE DATEPART(YEAR,[DATE])=2010
 			  GROUP BY IDMODEL) AS T5
 	  ) AS T6
 WHERE RN<=5)) AS T
@@ -644,30 +644,31 @@ INNER JOIN DIM_MANUFACTURER AS MA ON MA.IDManufacturer = M.IDManufacturer;
 --manufacturer with the 2nd top sales in the year of 2010.
 SELECT Manufacturer_Name
 FROM
-((SELECT IDMODEL
-FROM (SELECT *,
-		ROW_NUMBER() OVER (ORDER BY TOTAL_SALES DESC) AS RN
-		FROM (SELECT IDMODEL,
-			  SUM(TotalPrice) AS TOTAL_SALES
-			  FROM FACT_TRANSACTIONS
-			  WHERE DATEPART(YEAR,[DATE])=2009
-			  GROUP BY IDMODEL) AS T1
-	  ) AS T2
-WHERE RN=2)
-UNION
-(SELECT IDMODEL
-FROM (SELECT *,
-		ROW_NUMBER() OVER (ORDER BY TOTAL_SALES DESC) AS RN
-		FROM (SELECT IDMODEL, 
-			  SUM(TotalPrice) AS TOTAL_SALES
-			  FROM FACT_TRANSACTIONS
-			  WHERE DATEPART(YEAR,[DATE])=2010
-			  GROUP BY IDMODEL) AS T1
-	  ) AS T2
-WHERE RN=2)) AS T
+(
+    (SELECT IDManufacturer
+     FROM (SELECT *, ROW_NUMBER() OVER (ORDER BY TOTAL_SALES DESC) AS RN
+           FROM (SELECT IDManufacturer, SUM(TotalPrice) AS TOTAL_SALES
+                 FROM FACT_TRANSACTIONS AS T
+                 INNER JOIN DIM_MODEL AS M ON M.IDModel = T.IDModel
+                 GROUP BY IDManufacturer
+                 HAVING DATEPART(YEAR, T.[DATE])=2009) AS T1
+          ) AS T2
+     WHERE RN=2)
+    
+    UNION
+    
+    (SELECT IDManufacturer
+     FROM (SELECT *, ROW_NUMBER() OVER (ORDER BY TOTAL_SALES DESC) AS RN
+           FROM (SELECT IDManufacturer, SUM(TotalPrice) AS TOTAL_SALES
+                 FROM FACT_TRANSACTIONS AS T
+                 INNER JOIN DIM_MODEL AS M ON M.IDModel = T.IDModel
+                 GROUP BY IDManufacturer
+                 HAVING DATEPART(YEAR, T.[DATE])=2010) AS T3
+          ) AS T4
+     WHERE RN=2)
+) AS T
 
-INNER JOIN DIM_MODEL AS M ON M.IDModel = T.IDModel
-INNER JOIN DIM_MANUFACTURER AS MA ON MA.IDManufacturer = M.IDManufacturer;
+INNER JOIN DIM_MANUFACTURER AS MA ON MA.IDManufacturer = T.IDManufacturer;
 
 --Q8--END
 
@@ -696,22 +697,24 @@ FROM (SELECT Manufacturer_Name
 --Q10. Find top 100 customers and their average spend, average quantity by each
 --year. Also find the percentage of change in their spend.
 
-		SELECT TOP 100 * , ((AVG_SPEND - LAG(AVG_SPEND) OVER (
-										PARTITION BY IDCustomer
-										ORDER BY [YEAR])) / (LAG(AVG_SPEND) OVER (
-										PARTITION BY IDCustomer
-										ORDER BY [YEAR]))) * 100 AS Percent_change
+SELECT TOP 100 *, 
+       COALESCE(((AVG_SPEND - LAG(AVG_SPEND) OVER (
+                    PARTITION BY IDCustomer ORDER BY [YEAR])) 
+                 / NULLIF(LAG(AVG_SPEND) OVER (
+                    PARTITION BY IDCustomer ORDER BY [YEAR]), 0)) * 100, 0) 
+       AS Percent_change
+FROM (
+    SELECT T.IDCustomer, C.Customer_Name,
+           [YEAR], 
+           AVG(TotalPrice) AS AVG_SPEND, 
+           AVG(Quantity) AS AVG_QTY
+    FROM DIM_CUSTOMER AS C
+    INNER JOIN (SELECT *, DATEPART(YEAR,[DATE]) AS [YEAR]
+                FROM FACT_TRANSACTIONS) AS T
+    ON C.IDCustomer = T.IDCustomer
+    GROUP BY T.IDCustomer, C.Customer_Name, T.[YEAR]
+) AS T1
+ORDER BY AVG_SPEND;
 
-		FROM(
-				SELECT T.IDCustomer, C.Customer_Name,
-				[YEAR], 
-				AVG(TotalPrice) AS AVG_SPEND, 
-				AVG(Quantity) AS AVG_QTY
-				FROM DIM_CUSTOMER AS C
-				INNER JOIN (SELECT *, DATEPART(YEAR,[DATE]) AS [YEAR]
-					FROM FACT_TRANSACTIONS) AS T
-				ON C.IDCustomer = T.IDCustomer
-				GROUP BY T.IDCustomer, C.Customer_Name, T.[YEAR] ) AS T1
-		ORDER BY AVG_SPEND ;
 
 --Q10--END
